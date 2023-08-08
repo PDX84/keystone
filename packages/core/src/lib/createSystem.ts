@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import {
@@ -103,7 +104,7 @@ function getSudoGraphQLSchema (config: __ResolvedKeystoneConfig) {
                       access: allowAll,
                       isFilterable: true,
                       isOrderable: true,
-                      graphql: { ...(f.graphql || {}), omit: false },
+                      graphql: { ...(f.graphql || {}), omit: {} },
                     }
                   },
                 ]
@@ -116,15 +117,12 @@ function getSudoGraphQLSchema (config: __ResolvedKeystoneConfig) {
   }
 
   const lists = initialiseLists(transformedConfig)
-  const adminMeta = createAdminMeta(transformedConfig, lists)
-  return createGraphQLSchema(transformedConfig, lists, adminMeta, true)
-  // TODO: adminMeta not useful for sudo, remove in breaking change
-  // return createGraphQLSchema(transformedConfig, lists, null, true);
+  return createGraphQLSchema(transformedConfig, lists, null, true)
 }
 
 function injectNewDefaults (prismaClient: unknown, lists: Record<string, InitialisedList>) {
   for (const listKey in lists) {
-    const list = lists[listKey]
+    const list = lists[listKey];
 
     // TODO: other fields might use 'random' too
     const { dbField } = list.fields.id
@@ -135,7 +133,7 @@ function injectNewDefaults (prismaClient: unknown, lists: Record<string, Initial
       prismaClient = (prismaClient as any).$extends({
         query: {
           [list.prisma.listKey]: {
-            async create ({ model, args, query }: any) {
+            async create({ model, args, query }: any) {
               return query({
                 ...args,
                 data: {
@@ -150,6 +148,7 @@ function injectNewDefaults (prismaClient: unknown, lists: Record<string, Initial
     }
   }
 
+<<<<<<< HEAD
   prismaClient = (prismaClient as any).$extends({
     query: {
       async $allOperations({ model, operation, args, query }: any) {
@@ -251,9 +250,9 @@ export function createSystem (config_: KeystoneConfig) {
           await (prismaClient as any).$disconnect()
         },
         context,
-      }
+      };
     },
-  }
+  };
 }
 
 export type System = ReturnType<typeof createSystem>
