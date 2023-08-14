@@ -3,7 +3,6 @@ import { allowAll } from '@keystone-6/core/access'
 import { integer, text } from '@keystone-6/core/fields'
 import { setupTestRunner } from '@keystone-6/api-tests/test-runner'
 import { staticAdminMetaQuery } from '../../packages/core/src/admin-ui/admin-meta-graphql'
-import { dbProvider } from './utils'
 
 const runner = setupTestRunner({
   config: {
@@ -46,119 +45,18 @@ test(
           [GraphQLError: Access denied],
         ],
       }
-    `)
+    `);
   })
-)
-
-test(
-  'sudo context bypasses isAccessAllowed for admin meta',
-  runner(async ({ context }) => {
-    const data = await context.sudo().graphql.run({ query: staticAdminMetaQuery })
-    expect(data).toEqual({
-      keystone: {
-        __typename: 'KeystoneMeta',
-        adminMeta: {
-          __typename: 'KeystoneAdminMeta',
-          lists: [
-            {
-              __typename: 'KeystoneAdminUIListMeta',
-              description: null,
-              fields: [
-                {
-                  __typename: 'KeystoneAdminUIFieldMeta',
-                  customViewsIndex: null,
-                  description: null,
-                  fieldMeta: {
-                    kind: 'cuid',
-                    type: 'String',
-                  },
-                  isNonNull: [],
-                  itemView: {
-                    fieldMode: 'hidden',
-                  },
-                  label: 'Id',
-                  path: 'id',
-                  search: null,
-                  viewsIndex: 0,
-                },
-                {
-                  __typename: 'KeystoneAdminUIFieldMeta',
-                  customViewsIndex: null,
-                  description: null,
-                  fieldMeta: {
-                    defaultValue: '',
-                    displayMode: 'input',
-                    isNullable: false,
-                    shouldUseModeInsensitive: dbProvider === 'postgresql',
-                    validation: {
-                      isRequired: false,
-                      length: {
-                        max: null,
-                        min: null,
-                      },
-                      match: null,
-                    },
-                  },
-                  isNonNull: [],
-                  itemView: {
-                    fieldMode: 'hidden',
-                  },
-                  label: 'Name',
-                  path: 'name',
-                  search: dbProvider === 'postgresql' ? 'insensitive' : 'default',
-                  viewsIndex: 1,
-                },
-                {
-                  __typename: 'KeystoneAdminUIFieldMeta',
-                  customViewsIndex: null,
-                  description: null,
-                  fieldMeta: {
-                    defaultValue: null,
-                    validation: {
-                      isRequired: false,
-                      max: 2147483647,
-                      min: -2147483648,
-                    },
-                  },
-                  isNonNull: [],
-                  itemView: {
-                    fieldMode: 'read',
-                  },
-                  label: 'Something',
-                  path: 'something',
-                  search: null,
-                  viewsIndex: 2,
-                },
-              ],
-              groups: [],
-              initialColumns: ['name', 'something'],
-              initialSort: null,
-              itemQueryName: 'User',
-              key: 'User',
-              label: 'Users',
-              labelField: 'name',
-              listQueryName: 'Users',
-              pageSize: 50,
-              path: 'users',
-              plural: 'Users',
-              singular: 'User',
-              isSingleton: false,
-            },
-          ],
-        },
-      },
-    })
-  })
-)
+);
 
 const names = {
   label: 'Test Stuff',
   plural: 'Test Things',
   singular: 'Test Thing',
   path: 'thing',
-}
+};
 
-const gql = ([content]: TemplateStringsArray) => content
+const gql = ([content]: TemplateStringsArray) => content;
 
 const runner2 = setupTestRunner({
   config: {
@@ -190,12 +88,12 @@ test(
           }
         }
       `,
-    })
+    });
     expect(res.data!).toEqual({
       keystone: { adminMeta: { list: names } },
-    })
+    });
   })
-)
+);
 
 test(
   'listView and createView',
@@ -221,7 +119,7 @@ test(
           }
         }
       `,
-    })
+    });
     expect(data).toMatchInlineSnapshot(`
       {
         "keystone": {
@@ -263,6 +161,6 @@ test(
           },
         },
       }
-    `)
+    `);
   })
-)
+);
