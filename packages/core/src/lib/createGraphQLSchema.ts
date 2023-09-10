@@ -116,14 +116,15 @@ export function createGraphQLSchema (
             }),
           }
         : {},
-      query: adminMeta
-        ? {
-            keystone: graphql.field({
-              type: graphql.nonNull(KeystoneMeta),
-              resolve: () => ({ adminMeta }),
-            }),
-          }
-        : {},
+      query:
+        adminMeta && !config.ui?.isDisabled
+          ? {
+              keystone: graphql.field({
+                type: graphql.nonNull(KeystoneMeta),
+                resolve: () => ({ adminMeta }),
+              }),
+            }
+          : {},
     },
     sudo
   )
