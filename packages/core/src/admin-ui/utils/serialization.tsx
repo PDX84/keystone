@@ -9,15 +9,12 @@ export {
   type GraphQLValue
 } from '../../types'
 
-export function getDefaultControllerValue (
-  fields: Record<string, FieldMeta>,
-) {
-  const defaults: GraphQLValue = {}
+export function getDefaultControllerValue (fields: Record<string, FieldMeta>) {
+  const defaults: ControllerValue = {}
   for (const field of Object.values(fields)) {
-    defaults[field.path] = field.controller.defaultValue as any
+    defaults[field.path] = field.controller.defaultValue
   }
-
-  return graphQLValueToController(fields, defaults)
+  return defaults
 }
 
 export function getInvalidFields (
@@ -26,14 +23,10 @@ export function getInvalidFields (
 ): ReadonlySet<string> {
   const invalidFields = new Set<string>()
 
-  for (const [fieldKey, field] of Object.entries(fields)) {
-    const fieldValue = value[fieldKey]
-    const validateFn = field.controller.validate
-    if (validateFn) {
-      const result = validateFn(fieldValue)
-      if (result === false) {
-        invalidFields.add(fieldKey)
-      }
+  for (const field of Object.values(fields)) {
+    const fieldValue = value[field.path]
+    if (field.controller.validate?.(fieldValue) === false) {
+      invalidFields.add(field.path)
     }
   }
 
@@ -46,8 +39,8 @@ export function graphQLValueToController (
   value: GraphQLValue
 ) {
   const result: ControllerValue = {}
-  for (const [fieldKey, field] of Object.entries(fields)) {
-    result[fieldKey] = field.controller.deserialize(value[fieldKey])
+  for (const field of Object.values(fields)) {
+    result[field.path] = field.controller.deserialize(value)
   }
   return result
 }
@@ -58,8 +51,9 @@ export function controllerToGraphQLValue (
   state: ControllerValue
 ) {
   const result: GraphQLValue = {}
-  for (const [fieldKey, field] of Object.entries(fields)) {
-    result[fieldKey] = field.controller.serialize(state[fieldKey])?.[fieldKey]
+  for (const field of Object.values(fields)) {
+    if (field.path === 'id') continue // cannot be used
+    result[field.path] = field.controller.serialize(state[field.path])?.[field.path]
   }
   return result
 }

@@ -1,7 +1,7 @@
 /** @jsxRuntime classic */
 /** @jsx jsx */
 import { jsx, Stack, useTheme, Text } from '@keystone-ui/core'
-import { memo, type ReactNode, useContext, useId, useMemo } from 'react'
+import { memo, type ReactNode, useContext, useId, useCallback } from 'react'
 import { FieldDescription } from '@keystone-ui/fields'
 import { ButtonContext } from '@keystone-ui/button'
 import {
@@ -23,36 +23,33 @@ const Field = memo(function Field_ ({
   field: FieldMeta
   autoFocus?: boolean
   forceValidation?: boolean
-  onChange(value: (value: ControllerValue) => ControllerValue): void
+  onChange: (value: ControllerValue) => void
   value: unknown
   itemValue: ControllerValue
   mode: 'create' | 'item' | 'list',
   position: 'form' | 'sidebar'
 }) {
   const fieldMode = mode === 'create' ? field.createView.fieldMode : mode === 'item' ? field.itemView.fieldMode : field.listView.fieldMode ?? 'edit'
+  const fieldPosition = mode === 'item' ? field.itemView.fieldPosition : position
   if (fieldMode === 'hidden') return null
-
-  const fieldPosition = mode === 'item' ? field.itemView.fieldPosition : 'form'
   if (fieldPosition !== position) return null
 
-  return (
-    <field.views.Field
-      field={field.controller}
-      autoFocus={autoFocus}
-      forceValidation={forceValidation}
-      onChange={useMemo(() => {
-        if (fieldMode !== 'edit') return undefined
-        return (value: ControllerValue[string]) => {
-          onChange(itemValue => ({
-            ...itemValue,
-            [field.controller.path]: value
-          }))
-        }
-      }, [onChange, field.controller.path])}
-      value={value}
-      itemValue={itemValue}
-    />
-  )
+  const onChange_ = useCallback((value: ControllerValue) => {
+    if (fieldMode !== 'edit') return
+    onChange({
+      ...itemValue,
+      [field.controller.path]: value
+    })
+  }, [itemValue, onChange, field.controller.path])
+
+  return <field.views.Field
+    field={field.controller}
+    autoFocus={autoFocus}
+    forceValidation={forceValidation}
+    onChange={onChange_}
+    value={value}
+    itemValue={itemValue}
+  />
 })
 
 export function Fields ({
@@ -69,7 +66,7 @@ export function Fields ({
   fields: Record<string, FieldMeta>
   forceValidation: boolean
   invalidFields: ReadonlySet<string>
-  onChange (value: (value: ControllerValue) => ControllerValue): void
+  onChange: (value: ControllerValue) => void
   value: ControllerValue
   mode?: 'create' | 'item' | 'list',
   position?: 'form' | 'sidebar'

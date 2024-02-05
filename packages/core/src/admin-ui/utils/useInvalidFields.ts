@@ -8,7 +8,10 @@ import {
 
 export function useInvalidFields (
   fields: Record<string, FieldMeta>,
-  value: ControllerValue
-): ReadonlySet<string> {
-  return useMemo(() => getInvalidFields(fields, value), [fields, value])
+  value: ControllerValue | null
+) {
+  return useMemo(() => {
+    if (value === null) return new Set<string>()
+    return getInvalidFields(fields, value)
+  }, [fields, value])
 }

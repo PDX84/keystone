@@ -9,46 +9,47 @@ import { PageContainer } from '../../../../admin-ui/components/PageContainer'
 import { useList } from '../../../../admin-ui'
 import { GraphQLErrorNotice } from '../../../../admin-ui/components'
 import { useCreateItem } from '../../../../admin-ui/utils/useCreateItem'
-import { BaseToolbar, ColumnLayout, ItemPageHeader } from '../ItemPage/common'
+import { BaseToolbar, ConfirmButton, ColumnLayout, ItemPageHeader } from '../ItemPage/common'
 
-type CreateItemPageProps = { listKey: string }
-
-export const getCreateItemPage = (props: CreateItemPageProps) => () =>
-  <CreateItemPage {...props} />
-
-function CreateItemPage (props: CreateItemPageProps) {
-  const list = useList(props.listKey)
-  const createItem = useCreateItem(list)
+function CreateItemPage ({ listKey }: { listKey: string }) {
   const router = useRouter()
+  const list = useList(listKey)
+  const {
+    loading,
+    error,
+    itemLabel,
+    fieldsProps,
+    create,
+    reset
+  } = useCreateItem(list)
 
   return (
     <PageContainer
-      title={`Create ${list.singular}`}
+      title={`Create ${itemLabel}`}
       header={<ItemPageHeader list={list} label="Create" />}
     >
       <ColumnLayout>
         <Box>
           <Box paddingTop="xlarge">
-            {createItem.error && (
-              <GraphQLErrorNotice
-                networkError={createItem.error?.networkError}
-                errors={createItem.error?.graphQLErrors}
-              />
-            )}
-
-            <Fields {...createItem.props} />
+            <GraphQLErrorNotice networkError={error?.networkError} errors={error?.graphQLErrors} />
+            <Fields {...fieldsProps} />
             <BaseToolbar>
               <Button
-                isLoading={createItem.state === 'loading'}
+                isLoading={loading}
                 weight="bold"
                 tone="active"
                 onClick={async () => {
-                  const item = await createItem.create()
+                  const item = await create()
                   if (item) return void router.push(`/${list.path}/${item.id}`)
                 }}
               >
                 Create {list.singular}
               </Button>
+              <ConfirmButton
+                title="Reset to defaults"
+                message="Are you sure you want to reset to the defaults?"
+                onClick={async () => await reset()}
+              />
             </BaseToolbar>
           </Box>
         </Box>
@@ -56,3 +57,5 @@ function CreateItemPage (props: CreateItemPageProps) {
     </PageContainer>
   )
 }
+
+export const getCreateItemPage = (props: Parameters<typeof CreateItemPage>[0]) => () => <CreateItemPage {...props} />
