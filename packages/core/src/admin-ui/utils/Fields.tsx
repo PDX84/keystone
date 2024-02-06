@@ -4,93 +4,85 @@ import { jsx, Stack, useTheme, Text } from '@keystone-ui/core'
 import { memo, type ReactNode, useContext, useId, useMemo } from 'react'
 import { FieldDescription } from '@keystone-ui/fields'
 import { ButtonContext } from '@keystone-ui/button'
-import { type FieldGroupMeta, type FieldMeta } from '../../types'
-import { type Value } from '.'
-
-type RenderFieldProps = {
-  field: FieldMeta
-  value: unknown
-  itemValue: unknown
-  onChange?(value: (value: Value) => Value): void
-  autoFocus?: boolean
-  forceValidation?: boolean
-}
+import {
+  type FieldGroupMeta,
+  type FieldMeta,
+  type ControllerValue
+} from '../../types'
 
 const RenderField = memo(function RenderField ({
   field,
-  value,
-  itemValue,
   autoFocus,
   forceValidation,
   onChange,
-}: RenderFieldProps) {
+  value,
+  itemValue,
+}: {
+  field: FieldMeta
+  autoFocus?: boolean
+  forceValidation?: boolean
+  onChange?(value: (value: ControllerValue) => ControllerValue): void
+  value: unknown
+  itemValue: ControllerValue
+}) {
   return (
     <field.views.Field
       field={field.controller}
+      autoFocus={autoFocus}
+      forceValidation={forceValidation}
       onChange={useMemo(() => {
         if (onChange === undefined) return undefined
-        return value => {
-          onChange(val => ({ ...val, [field.controller.path]: { kind: 'value', value } }))
+        return (value: ControllerValue[string]) => {
+          onChange(itemValue => ({
+            ...itemValue,
+            [field.controller.path]: value
+          }))
         }
       }, [onChange, field.controller.path])}
       value={value}
       itemValue={itemValue}
-      autoFocus={autoFocus}
-      forceValidation={forceValidation}
     />
   )
 })
 
-type FieldsProps = {
-  fields: Record<string, FieldMeta>
-  groups?: FieldGroupMeta[]
-  value: Value
-  fieldModes?: Record<string, 'hidden' | 'edit' | 'read'> | null
-  fieldPositions?: Record<string, 'form' | 'sidebar'> | null
-  forceValidation: boolean
-  position?: 'form' | 'sidebar'
-  invalidFields: ReadonlySet<string>
-  onChange(value: (value: Value) => Value): void
-}
-
 export function Fields ({
+  groups = [],
   fields,
-  value,
-  fieldModes = null,
-  fieldPositions = null,
   forceValidation,
   invalidFields,
-  position = 'form',
-  groups = [],
   onChange,
-}: FieldsProps) {
+  value: itemValue,
+  mode = 'item',
+  position = 'form',
+}: {
+  groups?: FieldGroupMeta[]
+  fields: Record<string, FieldMeta>
+  forceValidation: boolean
+  invalidFields: ReadonlySet<string>
+  onChange (value: (value: ControllerValue) => ControllerValue): void
+  value: ControllerValue
+  mode?: 'create' | 'item' | 'list',
+  position?: 'form' | 'sidebar'
+}) {
   const renderedFields = Object.fromEntries(
     Object.keys(fields).map((fieldKey, index) => {
       const field = fields[fieldKey]
-      const val = value[fieldKey]
-      const fieldMode = fieldModes === null ? 'edit' : fieldModes[fieldKey]
-      const fieldPosition = fieldPositions === null ? 'form' : fieldPositions[fieldKey]
+      const fieldValue = itemValue[fieldKey]
+      const fieldMode = mode === 'create' ? field.createView.fieldMode : mode === 'item' ? field.itemView.fieldMode : field.listView.fieldMode ?? 'edit'
+      const fieldPosition = mode === 'item' ? field.itemView.fieldPosition : 'form'
       if (fieldMode === 'hidden') return [fieldKey, null]
       if (fieldPosition !== position) return [fieldKey, null]
-      if (val.kind === 'error') {
-        return [
-          fieldKey,
-          <div key={fieldKey}>
-            {field.label}: <span css={{ color: 'red' }}>{val.errors[0].message}</span>
-          </div>,
-        ]
-      }
       return [
         fieldKey,
         <RenderField
           key={fieldKey}
           field={field}
-          value={val.value}
-          itemValue={value}
+          autoFocus={index === 0}
           forceValidation={forceValidation && invalidFields.has(fieldKey)}
           onChange={fieldMode === 'edit' ? onChange : undefined}
-          autoFocus={index === 0}
-        />,
+          value={fieldValue}
+          itemValue={itemValue}
+        />
       ]
     })
   )

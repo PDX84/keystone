@@ -1,9 +1,11 @@
+import { type GraphQLSchema, } from 'graphql'
 import type { AdminMetaRootVal } from '../../lib/create-admin-meta'
 
 type AppTemplateOptions = { configFileExists: boolean }
 
 export function appTemplate (
   adminMetaRootVal: AdminMetaRootVal,
+  _: GraphQLSchema,
   { configFileExists }: AppTemplateOptions,
   apiPath: string
 ) {

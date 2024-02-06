@@ -1,11 +1,10 @@
 import { useToasts } from '@keystone-ui/toast'
 import { type ComponentProps, useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import isDeepEqual from 'fast-deep-equal'
-import { useMutation, gql, type ApolloError } from '../apollo'
-import { useKeystone } from '..'
-import type { ListMeta } from '../../types'
 import { usePreventNavigation } from './usePreventNavigation'
-import type { Fields, Value } from '.'
+import { useMutation, gql, type ApolloError } from '../apollo'
+import { type ListMeta } from '../../types'
+import { type Fields } from '.'
 
 type ValueWithoutServerSideErrors = { [key: string]: { kind: 'value', value: any } }
 
@@ -19,8 +18,6 @@ type CreateItemHookResult = {
 
 export function useCreateItem (list: ListMeta): CreateItemHookResult {
   const toasts = useToasts()
-  const { createViewFieldModes } = useKeystone()
-
   const [createItem, { loading, error, data: returnedData }] = useMutation(
     gql`mutation($data: ${list.gqlNames.createInputName}!) {
       item: ${list.gqlNames.createMutationName}(data: $data) {
@@ -30,30 +27,8 @@ export function useCreateItem (list: ListMeta): CreateItemHookResult {
   }`
   )
 
-  const [value, setValue] = useState(() => {
-    const value: ValueWithoutServerSideErrors = {}
-    Object.keys(list.fields).forEach(fieldPath => {
-      value[fieldPath] = { kind: 'value', value: list.fields[fieldPath].controller.defaultValue }
-    })
-    return value
-  })
-
-  const invalidFields = useMemo(() => {
-    const invalidFields = new Set<string>()
-
-    Object.keys(value).forEach(fieldPath => {
-      const val = value[fieldPath].value
-
-      const validateFn = list.fields[fieldPath].controller.validate
-      if (validateFn) {
-        const result = validateFn(val)
-        if (result === false) {
-          invalidFields.add(fieldPath)
-        }
-      }
-    })
-    return invalidFields
-  }, [list, value])
+  const [itemState, setItemState] = useState(() => getDefaultControllerValue(fields))
+  const invalidFields = useInvalidFields(fields, itemState)
 
   const [forceValidation, setForceValidation] = useState(false)
 
@@ -82,8 +57,6 @@ export function useCreateItem (list: ListMeta): CreateItemHookResult {
     props: {
       fields: list.fields,
       groups: list.groups,
-      fieldModes:
-        createViewFieldModes.state === 'loaded' ? createViewFieldModes.lists[list.key] : null,
       forceValidation,
       invalidFields,
       value,

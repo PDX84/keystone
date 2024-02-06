@@ -6,34 +6,26 @@ import { DrawerProvider } from '@keystone-ui/modals'
 import { createUploadLink } from 'apollo-upload-client'
 import type { AdminConfig, AdminMeta, FieldViews } from '../types'
 import { useAdminMeta } from './utils/useAdminMeta'
-import { ApolloProvider, ApolloClient, InMemoryCache, type ApolloError, type DocumentNode } from './apollo'
-import {
-  type AuthenticatedItem,
-  type VisibleLists,
-  useLazyMetadata,
-  type CreateViewFieldModes,
-} from './utils/useLazyMetadata'
+import { ApolloProvider, ApolloClient, InMemoryCache } from './apollo'
 
 type KeystoneContextType = {
-  adminConfig: AdminConfig
-  adminMeta:
-    | { state: 'loaded', value: AdminMeta }
-    | { state: 'error', error: ApolloError, refetch: () => Promise<void> }
+  adminConfig: AdminConfig | null
+  adminMeta: AdminMeta | null
   fieldViews: FieldViews
-  authenticatedItem: AuthenticatedItem
-  visibleLists: VisibleLists
-  createViewFieldModes: CreateViewFieldModes
-  reinitContext: () => Promise<void>
-  apiPath: string
+  apiPath: string | null
 }
 
-const KeystoneContext = createContext<KeystoneContextType | undefined>(undefined)
+const KeystoneContext = createContext<KeystoneContextType>({
+  adminConfig: null,
+  adminMeta: null,
+  fieldViews: {},
+  apiPath: null
+})
 
 type KeystoneProviderProps = {
   children: ReactNode
   adminConfig: AdminConfig
   fieldViews: FieldViews
-  lazyMetadataQuery: DocumentNode
   apiPath: string
 }
 
@@ -44,12 +36,6 @@ function InternalKeystoneProvider ({
   apiPath,
 }: KeystoneProviderProps) {
   const adminMeta = useAdminMeta(fieldViews)
-  const { authenticatedItem, visibleLists, createViewFieldModes, refetch } = useLazyMetadata(adminMeta.state === 'loaded' ? Object.values(adminMeta.value.lists) : [])
-  const reinitContext = async () => {
-    await adminMeta?.refetch?.()
-    await refetch()
-  }
-
   if (adminMeta.state === 'loading') {
     return (
       <Center fillView>
@@ -57,18 +43,15 @@ function InternalKeystoneProvider ({
       </Center>
     )
   }
+
   return (
     <ToastProvider>
       <DrawerProvider>
         <KeystoneContext.Provider
           value={{
             adminConfig,
-            adminMeta,
+            adminMeta: adminMeta.value ?? null,
             fieldViews,
-            authenticatedItem,
-            reinitContext,
-            visibleLists,
-            createViewFieldModes,
             apiPath,
           }}
         >
@@ -84,6 +67,7 @@ export function KeystoneProvider (props: KeystoneProviderProps) {
     () =>
       new ApolloClient({
         cache: new InMemoryCache(),
+        uri: props.apiPath,
         link: createUploadLink({
           uri: props.apiPath,
           headers: { 'Apollo-Require-Preflight': 'true' },
@@ -99,54 +83,12 @@ export function KeystoneProvider (props: KeystoneProviderProps) {
   )
 }
 
-export const useKeystone = (): {
-  adminConfig: AdminConfig
-  adminMeta: AdminMeta
-  authenticatedItem: AuthenticatedItem
-  visibleLists: VisibleLists
-  createViewFieldModes: CreateViewFieldModes
-  apiPath: string
-} => {
-  const value = useContext(KeystoneContext)
-  if (!value) {
-    throw new Error('useKeystone must be called inside a KeystoneProvider component')
-  }
-  if (value.adminMeta.state === 'error') {
-    throw new Error('An error occurred when loading Admin Metadata')
-  }
-  return {
-    adminConfig: value.adminConfig,
-    adminMeta: value.adminMeta.value,
-    authenticatedItem: value.authenticatedItem,
-    visibleLists: value.visibleLists,
-    createViewFieldModes: value.createViewFieldModes,
-    apiPath: value.apiPath,
-  }
+export function useKeystone () {
+  return useContext(KeystoneContext)
 }
 
-export const useReinitContext = () => {
-  const value = useContext(KeystoneContext)
-  if (!value) {
-    throw new Error('useReinitContext must be called inside a KeystoneProvider component')
-  }
-  return value.reinitContext
-}
-
-export const useRawKeystone = () => {
-  const value = useContext(KeystoneContext)
-  if (!value) {
-    throw new Error('useRawKeystone must be called inside a KeystoneProvider component')
-  }
-  return value
-}
-
-export const useList = (key: string) => {
-  const {
-    adminMeta: { lists },
-  } = useKeystone()
-  if (lists[key]) {
-    return lists[key]
-  } else {
-    throw new Error(`Invalid list key provided to useList: ${key}`)
-  }
+export function useList (key: string) {
+  const { adminMeta } = useKeystone()
+  if (adminMeta?.lists[key]) return adminMeta.lists[key]
+  throw new Error(`List '${key}' not found in meta`)
 }

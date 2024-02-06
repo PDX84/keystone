@@ -1,27 +1,14 @@
 import { useMemo } from 'react'
-import type { FieldMeta } from '../../types'
-import type { Value } from './item-form'
+import { getInvalidFields } from './serialization'
+
+import {
+  type FieldMeta,
+  type ControllerValue
+} from '../../types'
 
 export function useInvalidFields (
   fields: Record<string, FieldMeta>,
-  value: Value
+  value: ControllerValue
 ): ReadonlySet<string> {
-  return useMemo(() => {
-    const invalidFields = new Set<string>()
-
-    Object.keys(value).forEach(fieldPath => {
-      const val = value[fieldPath]
-
-      if (val.kind === 'value') {
-        const validateFn = fields[fieldPath].controller.validate
-        if (validateFn) {
-          const result = validateFn(val.value)
-          if (result === false) {
-            invalidFields.add(fieldPath)
-          }
-        }
-      }
-    })
-    return invalidFields
-  }, [fields, value])
+  return useMemo(() => getInvalidFields(fields, value), [fields, value])
 }

@@ -196,38 +196,18 @@ export const ListNavItems = ({ lists = [], include = [] }: NavItemsProps) => {
   )
 }
 
-export const Navigation = () => {
-  const {
-    adminMeta: { lists },
-    adminConfig,
-    authenticatedItem,
-    visibleLists,
-  } = useKeystone()
+export function Navigation () {
+  const { adminMeta, adminConfig, } = useKeystone()
+  const lists = Object.values(adminMeta?.lists ?? [])
 
-  if (visibleLists.state === 'loading') return null
-  // This visible lists error is critical and likely to result in a server restart
-  // if it happens, we'll show the error and not render the navigation component/s
-  if (visibleLists.state === 'error') {
-    return (
-      <Text as="span" paddingLeft="xlarge" css={{ color: 'red' }}>
-        {visibleLists.error instanceof Error
-          ? visibleLists.error.message
-          : visibleLists.error[0].message}
-      </Text>
-    )
-  }
-  const renderableLists = Object.keys(lists)
-    .map(key => {
-      if (!visibleLists.lists.has(key)) return null
-      return lists[key]
-    })
-    .filter((x): x is NonNullable<typeof x> => Boolean(x))
+  const authenticatedItem = { id: '123', listKey: 'User', label: 'hello' } // TODO: FIXME
+  const visibleLists = lists // TODO: FIXME
 
   if (adminConfig?.components?.Navigation) {
     return (
       <adminConfig.components.Navigation
         authenticatedItem={authenticatedItem}
-        lists={renderableLists}
+        lists={visibleLists}
       />
     )
   }
@@ -235,7 +215,7 @@ export const Navigation = () => {
   return (
     <NavigationContainer authenticatedItem={authenticatedItem}>
       <NavItem href="/">Dashboard</NavItem>
-      <ListNavItems lists={renderableLists} />
+      <ListNavItems lists={visibleLists} />
     </NavigationContainer>
   )
 }

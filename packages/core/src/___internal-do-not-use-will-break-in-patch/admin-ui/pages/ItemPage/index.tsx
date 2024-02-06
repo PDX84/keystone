@@ -24,12 +24,8 @@ import { Notice } from '@keystone-ui/notice'
 import { useToasts } from '@keystone-ui/toast'
 import { Tooltip } from '@keystone-ui/tooltip'
 import { FieldLabel, TextInput } from '@keystone-ui/fields'
-import type { ListMeta, FieldMeta } from '../../../../types'
+import { type ListMeta } from '../../../../types'
 import {
-  type DataGetter,
-  type DeepNullable,
-  makeDataGetter,
-  deserializeValue,
   type ItemData,
   useInvalidFields,
   Fields,
@@ -59,148 +55,92 @@ function useEventCallback<Func extends (...args: any) => any>(callback: Func): F
   return cb as any
 }
 
-type ItemViewFieldModes = NonNullable<FieldMeta['itemView']['fieldMode']>
-type ItemViewFieldPositions = NonNullable<FieldMeta['itemView']['fieldPosition']>
-
 function ItemForm ({
-  listKey,
-  itemGetter,
-  selectedFields,
-  fieldModes,
-  fieldPositions,
+  list,
+  item: initialItemState,
   showDelete,
-  item,
 }: {
-  listKey: string
-  itemGetter: DataGetter<ItemData>
-  selectedFields: string
-  fieldModes: Record<string, ItemViewFieldModes>
-  fieldPositions: Record<string, ItemViewFieldPositions>
-  showDelete: boolean
+  list: ListMeta
   item: ItemData
+  showDelete: boolean
 }) {
-  const list = useList(listKey)
   const { spacing, typography } = useTheme()
+  const toasts = useToasts()
 
-  const [update, { loading, error, data }] = useMutation(
+  const [update, { loading, error }] = useMutation(
     gql`mutation ($data: ${list.gqlNames.updateInputName}!, $id: ID!) {
       item: ${list.gqlNames.updateMutationName}(where: { id: $id }, data: $data) {
-        ${selectedFields}
+        id
       }
     }`,
-    { errorPolicy: 'all' }
-  )
-  itemGetter =
-    useMemo(() => {
-      if (data) {
-        return makeDataGetter(data, error?.graphQLErrors).get('item')
-      }
-    }, [data, error]) ?? itemGetter
-
-  const [state, setValue] = useState(() => {
-    const value = deserializeValue(list.fields, itemGetter)
-    return { value, item: itemGetter }
-  })
-  if (
-    !loading &&
-    state.item.data !== itemGetter.data &&
-    (itemGetter.errors || []).every(x => x.path?.length !== 1)
-  ) {
-    const value = deserializeValue(list.fields, itemGetter)
-    setValue({ value, item: itemGetter })
-  }
-
-  const { changedFields, dataForUpdate } = useChangedFieldsAndDataForUpdate(
-    list.fields,
-    state.item,
-    state.value
+    {
+      refetchQueries: ['ItemPage']
+    }
   )
 
-  const invalidFields = useInvalidFields(list.fields, state.value)
-
+  const [itemState, setItemState] = useState(initialItemState)
   const [forceValidation, setForceValidation] = useState(false)
-  const toasts = useToasts()
-  const onSave = useEventCallback(() => {
+  const invalidFields = new Set<string>() // TODO // useInvalidFields(list.fields, state.value)
+  const onSave = useCallback(async () => {
     const newForceValidation = invalidFields.size !== 0
     setForceValidation(newForceValidation)
     if (newForceValidation) return
 
-    update({ variables: { data: dataForUpdate, id: state.item.get('id').data } })
-      // TODO -- Experimenting with less detail in the toasts, so the data lines are commented
-      // out below. If we're happy with this, clean up the unused lines.
-      .then(({ /* data, */ errors }) => {
-        // we're checking for path being undefined OR path.length === 1 because errors with a path larger than 1 will
-        // be field level errors which are handled seperately and do not indicate a failure to
-        // update the item, path being undefined generally indicates a failure in the graphql mutation itself - ie a type error
-        const error = errors?.find(x => x.path === undefined || x.path?.length === 1)
-        if (error) {
-          toasts.addToast({
-            title: 'Failed to update item',
-            tone: 'negative',
-            message: error.message,
-          })
-        } else {
-          toasts.addToast({
-            // title: data.item[list.labelField] || data.item.id,
-            tone: 'positive',
-            title: 'Saved successfully',
-            // message: 'Saved successfully',
-          })
-        }
+    const { errors } = await update({
+      variables: {
+        id: initialItemState.id,
+        data: itemState,
+      }
+    })
+
+    const error = errors?.find(x => x.path === undefined || x.path?.length === 1)
+    if (error) {
+      toasts.addToast({
+        title: 'Failed to update item',
+        tone: 'negative',
+        message: error.message,
       })
-      .catch(err => {
-        toasts.addToast({ title: 'Failed to update item', tone: 'negative', message: err.message })
+    } else {
+      toasts.addToast({
+        title: 'Saved successfully',
+        tone: 'positive',
       })
-  })
-  const labelFieldValue = list.isSingleton ? list.label : state.item.data?.[list.labelField]
-  const itemId = state.item.data?.id!
-  const hasChangedFields = !!changedFields.size
+    }
+  }, [initialItemState, itemState, invalidFields, update])
+
+  const itemId = `${initialItemState?.id}`
+  const label = `${list.isSingleton ? list.label : initialItemState?.[list.labelField] ?? itemId}`
+  const hasChangedFields = true // TODO
   usePreventNavigation(useMemo(() => ({ current: hasChangedFields }), [hasChangedFields]))
+
   return (
     <Fragment>
       <Box marginTop="xlarge">
-        <GraphQLErrorNotice
-          networkError={error?.networkError}
-          // we're checking for path.length === 1 because errors with a path larger than 1 will be field level errors
-          // which are handled seperately and do not indicate a failure to update the item
-          errors={error?.graphQLErrors.filter(x => x.path?.length === 1)}
-        />
+        <GraphQLErrorNotice networkError={error?.networkError} errors={error?.graphQLErrors} />
         <Fields
           groups={list.groups}
-          fieldModes={fieldModes}
           fields={list.fields}
           forceValidation={forceValidation}
           invalidFields={invalidFields}
+          onChange={useCallback(values => void setItemState(values), [setItemState])}
+          value={itemState}
           position="form"
-          fieldPositions={fieldPositions}
-          onChange={useCallback(
-            value => {
-              setValue(state => ({ item: state.item, value: value(state.value) }))
-            },
-            [setValue]
-          )}
-          value={state.value}
         />
         <Toolbar
           onSave={onSave}
-          hasChangedFields={!!changedFields.size}
-          onReset={useEventCallback(() => {
-            setValue(state => ({
-              item: state.item,
-              value: deserializeValue(list.fields, state.item),
-            }))
-          })}
+          hasChangedFields={hasChangedFields}
+          onReset={useEventCallback(() => void setItemState(itemState))}
           loading={loading}
           deleteButton={useMemo(
             () =>
               showDelete ? (
                 <DeleteButton
                   list={list}
-                  itemLabel={(labelFieldValue ?? itemId) as string}
+                  itemLabel={label}
                   itemId={itemId}
                 />
               ) : undefined,
-            [showDelete, list, labelFieldValue, itemId]
+            [showDelete, list, label, itemId]
           )}
         />
       </Box>
@@ -219,17 +159,11 @@ function ItemForm ({
               fontSize: typography.fontSize.small,
             }}
             readOnly
-            value={item.id}
+            value={itemId}
           />
           <Tooltip content="Copy ID">
             {props => (
-              <Button
-                {...props}
-                aria-label="Copy ID"
-                onClick={() => {
-                  copyToClipboard(item.id)
-                }}
-              >
+              <Button {...props} aria-label="Copy ID" onClick={() => void copyToClipboard(itemId)}>
                 <ClipboardIcon size="small" />
               </Button>
             )}
@@ -238,19 +172,12 @@ function ItemForm ({
         <Box marginTop="xlarge">
           <Fields
             groups={list.groups}
-            fieldModes={fieldModes}
             fields={list.fields}
             forceValidation={forceValidation}
             invalidFields={invalidFields}
+            onChange={useCallback(values => void setItemState(values), [setItemState])}
+            value={itemState}
             position="sidebar"
-            fieldPositions={fieldPositions}
-            onChange={useCallback(
-              value => {
-                setValue(state => ({ item: state.item, value: value(state.value) }))
-              },
-              [setValue]
-            )}
-            value={state.value}
           />
         </Box>
       </StickySidebar>
@@ -335,123 +262,45 @@ export const getItemPage = (props: ItemPageProps) => () => <ItemPage {...props} 
 function ItemPage ({ listKey }: ItemPageProps) {
   const list = useList(listKey)
   const id = useRouter().query.id as string
+  const selectedFields = Object.entries(list.fields)
+    .filter(([fieldKey, field]) => {
+      if (fieldKey === 'id') return true
+      return field.itemView.fieldMode !== 'hidden'
+    })
+    .map(([fieldKey]) => list.fields[fieldKey].controller.graphqlSelection)
+    .join('\n')
 
-  const { query, selectedFields } = useMemo(() => {
-    const selectedFields = Object.entries(list.fields)
-      .filter(([fieldKey, field]) => {
-        if (fieldKey === 'id') return true
-        return field.itemView.fieldMode !== 'hidden'
-      })
-      .map(([fieldKey]) => {
-        return list.fields[fieldKey].controller.graphqlSelection
-      })
-      .join('\n')
-
-    return {
-      selectedFields,
-      query: gql`
-        query ItemPage($id: ID!, $listKey: String!) {
-          item: ${list.gqlNames.itemQueryName}(where: {id: $id}) {
-            ${selectedFields}
-          }
-          keystone {
-            adminMeta {
-              list(key: $listKey) {
-                hideCreate
-                hideDelete
-                fields {
-                  path
-                  itemView(id: $id) {
-                    fieldMode
-                    fieldPosition
-                  }
-                }
-              }
-            }
-          }
-        }
-      `,
+  const { data, error, loading } = useQuery(gql`
+    query ItemPage($id: ID!) {
+      item: ${list.gqlNames.itemQueryName}(where: {id: $id}) {
+        ${selectedFields}
+      }
     }
-  }, [list])
-
-  const { data, error, loading } = useQuery(query, {
-    variables: { id, listKey },
-    errorPolicy: 'all',
-    skip: id === undefined,
+  `, {
+    variables: { id }
   })
 
-  const dataGetter = makeDataGetter<
-    DeepNullable<{
-      item: ItemData
-      keystone: {
-        adminMeta: {
-          list: {
-            fields: {
-              path: string
-              itemView: {
-                fieldMode: ItemViewFieldModes
-                fieldPosition: ItemViewFieldPositions
-              }
-            }[]
-          }
-        }
-      }
-    }>
-  >(data, error?.graphQLErrors)
-
-  const itemViewFieldModesByField = useMemo(() => {
-    const itemViewFieldModesByField: Record<string, ItemViewFieldModes> = {}
-    dataGetter.data?.keystone?.adminMeta?.list?.fields?.forEach(field => {
-      if (field === null || field.path === null || field?.itemView?.fieldMode == null) return
-      itemViewFieldModesByField[field.path] = field.itemView.fieldMode
-    })
-    return itemViewFieldModesByField
-  }, [dataGetter.data?.keystone?.adminMeta?.list?.fields])
-
-  const itemViewFieldPositionsByField = useMemo(() => {
-    const itemViewFieldPositionsByField: Record<string, ItemViewFieldPositions> = {}
-    dataGetter.data?.keystone?.adminMeta?.list?.fields?.forEach(field => {
-      if (field === null || field.path === null || field?.itemView?.fieldPosition == null) return
-      itemViewFieldPositionsByField[field.path] = field.itemView.fieldPosition
-    })
-    return itemViewFieldPositionsByField
-  }, [dataGetter.data?.keystone?.adminMeta?.list?.fields])
-
-  const pageLoading = loading || id === undefined
-  const metaQueryErrors = dataGetter.get('keystone').errors
-  const pageTitle: string = list.isSingleton
-    ? list.label
-    : pageLoading
-    ? undefined
-    : (data && data.item && (data.item[list.labelField] || data.item.id)) || id
-
+  const item = data?.item ?? null
+  const pageTitle = list.isSingleton ? list.label : (item?.[list.labelField] ?? item?.id) ?? id
   return (
     <PageContainer
       title={pageTitle}
       header={
         <ItemPageHeader
           list={list}
-          label={
-            pageLoading
-              ? 'Loading...'
-              : (data && data.item && (data.item[list.labelField] || data.item.id)) || id
-          }
+          label={loading ? 'Loading...' : pageTitle}
         />
       }
     >
-      {pageLoading ? (
+      {loading ? (
         <Center css={{ height: `calc(100vh - ${HEADER_HEIGHT}px)` }}>
           <LoadingDots label="Loading item data" size="large" tone="passive" />
         </Center>
-      ) : metaQueryErrors ? (
-        <Box marginY="xlarge">
-          <Notice tone="negative">{metaQueryErrors[0].message}</Notice>
-        </Box>
       ) : (
         <ColumnLayout>
           {data?.item == null ? (
             <Box marginY="xlarge">
-              {error?.graphQLErrors.length || error?.networkError ? (
+              {error ? (
                 <GraphQLErrorNotice
                   errors={error?.graphQLErrors}
                   networkError={error?.networkError}
@@ -462,7 +311,7 @@ function ItemPage ({ listKey }: ItemPageProps) {
                     <Notice tone="negative">
                       {list.label} doesn't exist or you don't have access to it.
                     </Notice>
-                    {!data.keystone.adminMeta.list!.hideCreate && <CreateButtonLink list={list} />}
+                    {list.hideCreate && <CreateButtonLink list={list} />}
                   </Stack>
                 ) : (
                   <Notice tone="negative">The item with id "{id}" does not exist</Notice>
@@ -474,17 +323,11 @@ function ItemPage ({ listKey }: ItemPageProps) {
               )}
             </Box>
           ) : (
-            <Fragment>
-              <ItemForm
-                fieldModes={itemViewFieldModesByField}
-                fieldPositions={itemViewFieldPositionsByField}
-                selectedFields={selectedFields}
-                showDelete={!data.keystone.adminMeta.list!.hideDelete}
-                listKey={listKey}
-                itemGetter={dataGetter.get('item') as DataGetter<ItemData>}
-                item={data.item}
-              />
-            </Fragment>
+            <ItemForm
+              list={list}
+              item={data.item}
+              showDelete={!list.hideDelete}
+            />
           )}
         </ColumnLayout>
       )}

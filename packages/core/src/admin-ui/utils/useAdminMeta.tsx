@@ -6,15 +6,12 @@ import { type AdminMetaQuery, adminMetaQuery } from '../admin-meta-graphql'
 const expectedExports = new Set(['Cell', 'Field', 'controller', 'CardValue'])
 
 export function useAdminMeta (fieldViews: FieldViews) {
-  const { data, error, refetch } = useQuery<AdminMetaQuery>(adminMetaQuery, {
-    fetchPolicy: 'network-only',
-//      fetchPolicy: 'no-cache', // TODO: something is bugged
-  })
+  const { data, error } = useQuery<AdminMetaQuery>(adminMetaQuery)
   const lists = data?.keystone?.adminMeta?.lists
 
-  const adminMeta = useMemo(() => {
-    if (!lists) return
-    if (error) return
+  const result = useMemo(() => {
+    if (!lists) return undefined
+    if (error) return undefined
 
     const result: AdminMeta = {
       lists: {},
@@ -100,18 +97,13 @@ export function useAdminMeta (fieldViews: FieldViews) {
     }
 
     return result
-  }, [data, error, fieldViews])
+  }, [lists, error, fieldViews])
 
-  if (adminMeta) {
-    return { state: 'loaded' as const, value: adminMeta }
-  }
+  if (result) return { state: 'loaded' as const, value: result }
   if (error) {
     return {
       state: 'error' as const,
       error,
-      refetch: async () => {
-        await refetch()
-      },
     }
   }
   return { state: 'loading' as const }
