@@ -41,6 +41,7 @@ export function graphQLValueToController (
   const result: ControllerValue = {}
   for (const field of Object.values(fields)) {
     result[field.path] = field.controller.deserialize(value)
+    console.error(field.path, result[field.path], value[field.path])
   }
   return result
 }

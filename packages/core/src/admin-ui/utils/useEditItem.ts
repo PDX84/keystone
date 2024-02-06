@@ -26,7 +26,7 @@ export function useEditItem (list: ListMeta, id: string) {
     .map(([fieldKey]) => list.fields[fieldKey].controller.graphqlSelection)
     .join('\n')
 
-  const { loading: getLoading, error: getError, data: getData } = useQuery<{ item: GraphQLValue }>(gql`
+  const { loading: getLoading, error: getError, data: getData } = useQuery<{ item: GraphQLValue | null }>(gql`
     query GetItem ($id: ID!) {
       item: ${list.gqlNames.itemQueryName}(where: { id: $id }) {
         ${selectedFields}
@@ -76,6 +76,10 @@ export function useEditItem (list: ListMeta, id: string) {
     if (!savedItemState) return
     setItemState(savedItemState)
   }, [savedItemState === null])
+
+//    useEffect(() => {
+//      setItemState(savedItemState)
+//    }, [savedItemState?.id])
 
   const shouldPreventNavigationRef = useRef(changed)
   const onChange = useCallback((value: ControllerValue) => {
