@@ -44,9 +44,7 @@ function CreateItemPage (props: CreateItemPageProps) {
                 tone="active"
                 onClick={async () => {
                   const item = await createItem.create()
-                  if (item) {
-                    router.push(`/${list.path}/${item.id}`)
-                  }
+                  if (item) return void router.push(`/${list.path}/${item.id}`)
                 }}
               >
                 Create {list.singular}

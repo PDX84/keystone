@@ -10,28 +10,38 @@ import {
   type ControllerValue
 } from '../../types'
 
-const RenderField = memo(function RenderField ({
+const Field = memo(function Field_ ({
   field,
   autoFocus,
   forceValidation,
   onChange,
   value,
   itemValue,
+  mode,
+  position
 }: {
   field: FieldMeta
   autoFocus?: boolean
   forceValidation?: boolean
-  onChange?(value: (value: ControllerValue) => ControllerValue): void
+  onChange(value: (value: ControllerValue) => ControllerValue): void
   value: unknown
   itemValue: ControllerValue
+  mode: 'create' | 'item' | 'list',
+  position: 'form' | 'sidebar'
 }) {
+  const fieldMode = mode === 'create' ? field.createView.fieldMode : mode === 'item' ? field.itemView.fieldMode : field.listView.fieldMode ?? 'edit'
+  if (fieldMode === 'hidden') return null
+
+  const fieldPosition = mode === 'item' ? field.itemView.fieldPosition : 'form'
+  if (fieldPosition !== position) return null
+
   return (
     <field.views.Field
       field={field.controller}
       autoFocus={autoFocus}
       forceValidation={forceValidation}
       onChange={useMemo(() => {
-        if (onChange === undefined) return undefined
+        if (fieldMode !== 'edit') return undefined
         return (value: ControllerValue[string]) => {
           onChange(itemValue => ({
             ...itemValue,
@@ -64,67 +74,53 @@ export function Fields ({
   mode?: 'create' | 'item' | 'list',
   position?: 'form' | 'sidebar'
 }) {
-  const renderedFields = Object.fromEntries(
-    Object.keys(fields).map((fieldKey, index) => {
-      const field = fields[fieldKey]
-      const fieldValue = itemValue[fieldKey]
-      const fieldMode = mode === 'create' ? field.createView.fieldMode : mode === 'item' ? field.itemView.fieldMode : field.listView.fieldMode ?? 'edit'
-      const fieldPosition = mode === 'item' ? field.itemView.fieldPosition : 'form'
-      if (fieldMode === 'hidden') return [fieldKey, null]
-      if (fieldPosition !== position) return [fieldKey, null]
-      return [
-        fieldKey,
-        <RenderField
-          key={fieldKey}
-          field={field}
-          autoFocus={index === 0}
-          forceValidation={forceValidation && invalidFields.has(fieldKey)}
-          onChange={fieldMode === 'edit' ? onChange : undefined}
-          value={fieldValue}
-          itemValue={itemValue}
-        />
-      ]
-    })
-  )
   const rendered: ReactNode[] = []
-  const fieldGroups = new Map<string, { rendered: boolean, group: FieldGroupMeta }>()
-  for (const group of groups) {
-    const state = { group, rendered: false }
-    for (const field of group.fields) {
-      fieldGroups.set(field.path, state)
+  let count = 0
+
+  if (groups.length) {
+    for (const group of groups) {
+      rendered.push(<FieldGroup
+        key={rendered.length}
+        label={group.label}
+        description={group.description}>
+        {group.fields.map((field) => {
+          const fieldValue = itemValue[field.path]
+
+          return <Field
+            key={field.path}
+            field={field}
+            autoFocus={count++ === 0}
+            forceValidation={forceValidation && invalidFields.has(field.path)}
+            onChange={onChange}
+            value={fieldValue}
+            itemValue={itemValue}
+            mode={mode}
+            position={position}
+          />
+        })}
+      </FieldGroup>)
     }
-  }
-  for (const field of Object.values(fields)) {
-    const fieldKey = field.path
-    if (fieldGroups.has(fieldKey)) {
-      const groupState = fieldGroups.get(field.path)!
-      if (groupState.rendered) {
-        continue
-      }
-      groupState.rendered = true
-      const { group } = groupState
-      const renderedFieldsInGroup = group.fields.map(field => renderedFields[field.path])
-      if (renderedFieldsInGroup.every(field => field === null)) {
-        continue
-      }
-      rendered.push(
-        <FieldGroup label={group.label} description={group.description}>
-          {renderedFieldsInGroup}
-        </FieldGroup>
-      )
-      continue
+  } else {
+    for (const field of Object.values(fields)) {
+      const fieldValue = itemValue[field.path]
+
+      rendered.push(<Field
+        key={field.path}
+        field={field}
+        autoFocus={count++ === 0}
+        forceValidation={forceValidation && invalidFields.has(field.path)}
+        onChange={onChange}
+        value={fieldValue}
+        itemValue={itemValue}
+        mode={mode}
+        position={position}
+      />)
     }
-    if (renderedFields[fieldKey] === null) {
-      continue
-    }
-    rendered.push(renderedFields[fieldKey])
   }
 
-  return (
-    <Stack gap="xlarge">
-      {rendered.length === 0 ? 'There are no fields that you can read or edit' : rendered}
-    </Stack>
-  )
+  return <Stack gap="xlarge">
+    {rendered.every(x => x === null) ? 'There are no fields that you can read or edit' : rendered}
+  </Stack>
 }
 
 function FieldGroup (props: { label: string, description: string | null, children: ReactNode }) {

@@ -23,8 +23,8 @@ export function useCreateItem (list: ListMeta): CreateItemHookResult {
       item: ${list.gqlNames.createMutationName}(data: $data) {
         id
         label: ${list.labelField}
-    }
-  }`
+      }
+    }`
   )
 
   const [itemState, setItemState] = useState(() => getDefaultControllerValue(fields))
@@ -64,15 +64,13 @@ export function useCreateItem (list: ListMeta): CreateItemHookResult {
         setValue(oldValues => getNewValue(oldValues) as ValueWithoutServerSideErrors)
       }, []),
     },
-    async create (): Promise<{ id: string, label: string | null } | undefined> {
+    async create () {
       const newForceValidation = invalidFields.size !== 0
       setForceValidation(newForceValidation)
-
       if (newForceValidation) return undefined
 
-      let outputData: { item: { id: string, label: string | null } }
       try {
-        outputData = await createItem({
+        const { data: outputData } = await createItem({
           variables: {
             data,
           },
@@ -86,18 +84,21 @@ export function useCreateItem (list: ListMeta): CreateItemHookResult {
               })
             }
           },
-        }).then(x => x.data)
-      } catch {
+        })
+
+        shouldPreventNavigationRef.current = false
+        const label = outputData.item.label ?? outputData.item.id
+        toasts.addToast({
+          title: label,
+          message: 'Created Successfully',
+          tone: 'positive',
+        })
+        return outputData.item
+
+      } catch (e) {
+        console.error(e)
         return undefined
       }
-      shouldPreventNavigationRef.current = false
-      const label = outputData.item.label || outputData.item.id
-      toasts.addToast({
-        title: label,
-        message: 'Created Successfully',
-        tone: 'positive',
-      })
-      return outputData.item
     },
   }
 }

@@ -88,9 +88,9 @@ export type InitialisedList = {
 
   fields: Record<string, InitialisedField>
   groups: {
-    fields: BaseListTypeInfo['fields'][]
     label: string
     description: string | null
+    fields: BaseListTypeInfo['fields'][]
   }[]
 
   hooks: ResolvedListHooks<BaseListTypeInfo>
