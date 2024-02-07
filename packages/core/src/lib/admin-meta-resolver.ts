@@ -88,26 +88,13 @@ const KeystoneAdminUIFieldMeta = graphql.object<FieldMetaRootVal>()({
               values: graphql.enumValues(['edit', 'read', 'hidden']),
             }),
             resolve ({ fieldMode, itemId, listKey }, args, context, info) {
-              if (itemId !== null) {
-                assertInRuntimeContext(context, info)
-              }
-
-              if (typeof fieldMode === 'string') {
-                return fieldMode
-              }
-
-              if (itemId === null) {
-                return null
-              }
-
-              // we need to re-assert this because typescript doesn't understand the relation between
-              // rootVal.itemId !== null and the context being a runtime context
               assertInRuntimeContext(context, info)
+              if (typeof fieldMode === 'string') return fieldMode
+              if (itemId === null) return null
 
               return fetchItemForItemViewFieldMode(context)(listKey, itemId).then(item => {
-                if (item === null) {
-                  return 'hidden' as const
-                }
+                if (item === null) return 'hidden' as const
+
                 return fieldMode({
                   session: context.session,
                   context,
@@ -122,20 +109,13 @@ const KeystoneAdminUIFieldMeta = graphql.object<FieldMetaRootVal>()({
               values: graphql.enumValues(['form', 'sidebar']),
             }),
             resolve ({ fieldPosition, itemId, listKey }, args, context, info) {
-              if (itemId !== null) {
-                assertInRuntimeContext(context, info)
-              }
-              if (typeof fieldPosition === 'string') {
-                return fieldPosition
-              }
-              if (itemId === null) {
-                return null
-              }
               assertInRuntimeContext(context, info)
+              if (typeof fieldPosition === 'string') return fieldPosition
+              if (itemId === null) return null
+
               return fetchItemForItemViewFieldMode(context)(listKey, itemId).then(item => {
-                if (item === null) {
-                  return 'form' as const
-                }
+                if (item === null) return 'form' as const
+
                 return fieldPosition({
                   session: context.session,
                   context,
@@ -205,6 +185,7 @@ const KeystoneAdminUIListMeta = graphql.object<ListMetaRootVal>()({
     }),
     initialSort: graphql.field({ type: KeystoneAdminUISort }),
     ...contextFunctionField('isHidden', graphql.Boolean),
+    isAuthenticated: graphql.field({ type: graphql.nonNull(graphql.Boolean) }),
     isSingleton: graphql.field({ type: graphql.nonNull(graphql.Boolean) }),
   },
 })
@@ -212,6 +193,13 @@ const KeystoneAdminUIListMeta = graphql.object<ListMetaRootVal>()({
 const adminMeta = graphql.object<AdminMetaRootVal>()({
   name: 'KeystoneAdminMeta',
   fields: {
+    authenticatedList: graphql.field({
+      type: KeystoneAdminUIListMeta,
+      args: { key: graphql.arg({ type: graphql.nonNull(graphql.String) }) },
+      resolve (rootVal, { key }) {
+        return rootVal.listsByKey[key]
+      },
+    }),
     lists: graphql.field({
       type: graphql.nonNull(graphql.list(graphql.nonNull(KeystoneAdminUIListMeta))),
     }),
@@ -235,10 +223,8 @@ export const KeystoneMeta = graphql.object<{ adminMeta: AdminMetaRootVal }>()({
   fields: {
     adminMeta: graphql.field({
       type: graphql.nonNull(adminMeta),
-      resolve ({ adminMeta }, args, context) {
-        if ('isAdminUIBuildProcess' in context) {
-          return adminMeta
-        }
+      resolve ({ adminMeta }, args, context, info) {
+        assertInRuntimeContext(context, info)
 
         const isAccessAllowed = adminMeta?.isAccessAllowed ?? defaultIsAccessAllowed
         return Promise.resolve(isAccessAllowed(context)).then(isAllowed => {

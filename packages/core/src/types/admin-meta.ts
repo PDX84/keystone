@@ -86,6 +86,9 @@ export type FieldMeta = {
   graphql: {
     isNonNull: ('read' | 'create' | 'update')[]
   }
+  createView: {
+    fieldMode: 'edit' | 'hidden' | null
+  }
   itemView: {
     /**
      * `null` indicates that the value is dynamic and must be fetched for any given item
@@ -93,6 +96,11 @@ export type FieldMeta = {
     fieldMode: 'edit' | 'read' | 'hidden' | null
     fieldPosition: 'form' | 'sidebar' | null
   }
+  listView: {
+    fieldMode: 'read' | 'hidden' | null
+  }
+  isFilterable: boolean
+  isOrderable: boolean
 }
 
 export type FieldGroupMeta = {
@@ -120,7 +128,11 @@ export type ListMeta = {
   pageSize: number
   initialColumns: string[]
   initialSort: null | { direction: 'ASC' | 'DESC', field: string }
+  isAuthenticated: boolean
   isSingleton: boolean
+
+  hideCreate: boolean
+  hideDelete: boolean
 }
 
 export type AdminMeta = {

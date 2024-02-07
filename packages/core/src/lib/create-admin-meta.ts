@@ -64,6 +64,7 @@ export type ListMetaRootVal = {
   pageSize: number
   initialColumns: string[]
   initialSort: { field: string, direction: 'ASC' | 'DESC' } | null
+  isAuthenticated: boolean
   isSingleton: boolean
 
   // TODO: probably remove this
@@ -147,6 +148,7 @@ export function createAdminMeta (
         (listConfig.ui?.listView?.initialSort as
           | { field: string, direction: 'ASC' | 'DESC' }
           | undefined) ?? null,
+      isAuthenticated: list.isAuthenticated,
       isSingleton: list.isSingleton,
 
       // TODO: probably remove this

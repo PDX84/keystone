@@ -1,60 +1,87 @@
-import type { GraphQLError } from 'graphql'
+import { type GraphQLError } from 'graphql'
 import { useMemo } from 'react'
-import type { AuthenticatedItem, VisibleLists, CreateViewFieldModes } from '../../types'
-import { type DocumentNode, useQuery, type QueryResult, type ServerError, type ServerParseError } from '../apollo'
+import type { AuthenticatedItem, VisibleLists, CreateViewFieldModes, ListMeta } from '../../types'
+import { gql, useQuery, type QueryResult, type ServerError, type ServerParseError } from '../apollo'
 import { type DeepNullable, makeDataGetter } from './dataGetter'
 
 export type { AuthenticatedItem, VisibleLists, CreateViewFieldModes }
 
-export function useLazyMetadata (query: DocumentNode): {
+function getLazyMetadataQuery (lists: ListMeta[]) {
+  const fragments = lists
+    .filter(x => x.isAuthenticated)
+    .map((list) => {
+      return `
+        ... on ${list.key} {
+          id
+          name: ${list.labelField}
+        }
+      `
+    })
+
+  return gql`query LesserAdminMeta {
+    keystone {
+      adminMeta {
+        lists {
+          key
+          isHidden
+          fields {
+            path
+            createView {
+              fieldMode
+            }
+          }
+        }
+      }
+    }
+    ${fragments.length ? `
+      authenticatedItem {
+        ${fragments.join('\n')}
+      }
+    ` : ''}
+  }`
+}
+
+type MetaResult = {
+  keystone: {
+    adminMeta: {
+      lists: {
+        key: string
+        isHidden: boolean
+        fields: { path: string, createView: { fieldMode: 'edit' | 'hidden' } }[]
+      }[]
+    }
+  }
+  authenticatedItem:
+    | {
+        __typename: string
+        id: string
+        [key: string]: any
+      }
+    | { __typename: string }
+}
+
+export function useLazyMetadata (lists: ListMeta[]): {
   authenticatedItem: AuthenticatedItem
   refetch: () => Promise<void>
   visibleLists: VisibleLists
   createViewFieldModes: CreateViewFieldModes
 } {
-  const result = useQuery(query, { errorPolicy: 'all', fetchPolicy: 'no-cache' })
+//    const result = useQuery<MetaResult>(getLazyMetadataQuery(lists), { errorPolicy: 'all', fetchPolicy: 'network-only' })
+  const result = useQuery<MetaResult>(getLazyMetadataQuery(lists), { errorPolicy: 'all', fetchPolicy: 'no-cache' }) // TODO: something is bugged
   return useMemo(() => {
     const refetch = async () => {
       await result.refetch()
     }
 
-    const dataGetter = makeDataGetter<
-      DeepNullable<{
-        authenticatedItem:
-          | {
-              __typename: string
-              id: string
-              [key: string]: any
-            }
-          | { __typename: string }
-        keystone: {
-          adminMeta: {
-            lists: {
-              key: string
-              isHidden: boolean
-              fields: { path: string, createView: { fieldMode: 'edit' | 'hidden' } }[]
-            }[]
-          }
-        }
-      }>
-    >(result.data, result.error?.graphQLErrors)
+    const dataGetter = makeDataGetter<DeepNullable<MetaResult> | null>(result.data ?? null, result.error?.graphQLErrors)
     const authenticatedItemGetter = dataGetter.get('authenticatedItem')
     const keystoneMetaGetter = dataGetter.get('keystone')
 
     return {
       refetch,
-      authenticatedItem: getAuthenticatedItem(
-        result,
-        authenticatedItemGetter.errors || (result.error?.networkError ?? undefined)
-      ),
-      visibleLists: getVisibleLists(
-        result,
-        keystoneMetaGetter.errors || (result.error?.networkError ?? undefined)
-      ),
-      createViewFieldModes: getCreateViewFieldModes(
-        result,
-        keystoneMetaGetter.errors || (result.error?.networkError ?? undefined)
-      ),
+      authenticatedItem: getAuthenticatedItem(result, authenticatedItemGetter.errors || (result.error?.networkError ?? undefined)),
+      visibleLists: getVisibleLists(result, keystoneMetaGetter.errors || (result.error?.networkError ?? undefined)),
+      createViewFieldModes: getCreateViewFieldModes(result, keystoneMetaGetter.errors || (result.error?.networkError ?? undefined)),
     }
   }, [result])
 }
@@ -68,7 +95,7 @@ function getCreateViewFieldModes (
   }
   if (data) {
     const lists: Record<string, Record<string, 'edit' | 'hidden'>> = {}
-    data.keystone.adminMeta.lists.forEach((list: any) => {
+    data.keystone?.adminMeta?.lists?.forEach((list: any) => {
       lists[list.key] = {}
       list.fields.forEach((field: any) => {
         lists[list.key][field.path] = field.createView.fieldMode
@@ -89,7 +116,7 @@ function getVisibleLists (
   }
   if (data) {
     const lists = new Set<string>()
-    data.keystone.adminMeta.lists.forEach((list: any) => {
+    data.keystone?.adminMeta?.lists?.forEach((list: any) => {
       if (!list.isHidden) {
         lists.add(list.key)
       }

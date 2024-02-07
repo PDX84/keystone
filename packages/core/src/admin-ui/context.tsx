@@ -32,7 +32,6 @@ const KeystoneContext = createContext<KeystoneContextType | undefined>(undefined
 type KeystoneProviderProps = {
   children: ReactNode
   adminConfig: AdminConfig
-  adminMetaHash: string
   fieldViews: FieldViews
   lazyMetadataQuery: DocumentNode
   apiPath: string
@@ -41,14 +40,11 @@ type KeystoneProviderProps = {
 function InternalKeystoneProvider ({
   adminConfig,
   fieldViews,
-  adminMetaHash,
   children,
-  lazyMetadataQuery,
   apiPath,
 }: KeystoneProviderProps) {
-  const adminMeta = useAdminMeta(adminMetaHash, fieldViews)
-  const { authenticatedItem, visibleLists, createViewFieldModes, refetch } =
-    useLazyMetadata(lazyMetadataQuery)
+  const adminMeta = useAdminMeta(fieldViews)
+  const { authenticatedItem, visibleLists, createViewFieldModes, refetch } = useLazyMetadata(adminMeta.state === 'loaded' ? Object.values(adminMeta.value.lists) : [])
   const reinitContext = async () => {
     await adminMeta?.refetch?.()
     await refetch()

@@ -122,6 +122,7 @@ export type InitialisedList = {
     searchableFields: Map<string, 'default' | 'insensitive' | null>
   }
 
+  isAuthenticated: boolean // TODO: remove
   isSingleton: boolean
 }
 
@@ -498,6 +499,8 @@ function getListsWithInitialisedFields (
         }
         return typeof cacheHint === 'function' ? cacheHint : () => cacheHint
       })(),
+
+      isAuthenticated: true, // TODO
       isSingleton: list.isSingleton ?? false,
     }
   }

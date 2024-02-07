@@ -59,7 +59,7 @@ let listMetaGraphqlQuery: TypedDocumentNode<
   },
   { listKey: string }
 > = gql`
-  query ($listKey: String!) {
+  query ListPageMeta ($listKey: String!) {
     keystone {
       adminMeta {
         list(key: $listKey) {
@@ -200,7 +200,7 @@ function ListPage ({ listKey }: ListPageProps) {
 
       // TODO: FIXME: this is bad
       return gql`
-      query ($where: ${list.gqlNames.whereInputName}, $take: Int!, $skip: Int!, $orderBy: [${
+      query ListPageItems ($where: ${list.gqlNames.whereInputName}, $take: Int!, $skip: Int!, $orderBy: [${
         list.gqlNames.listOrderName
       }!]) {
         items: ${

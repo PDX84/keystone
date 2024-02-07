@@ -8,7 +8,6 @@ import { KeystoneProvider } from '../../../../admin-ui/context'
 
 type AppConfig = {
   adminConfig: AdminConfig
-  adminMetaHash: string
   fieldViews: FieldViews
   lazyMetadataQuery: DocumentNode
   apiPath: string

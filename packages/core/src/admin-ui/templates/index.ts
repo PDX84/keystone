@@ -1,5 +1,4 @@
 import * as Path from 'path'
-import type { GraphQLSchema } from 'graphql'
 import {
   type AdminFileToWrite,
   type __ResolvedKeystoneConfig
@@ -17,7 +16,6 @@ const pkgDir = Path.dirname(require.resolve('@keystone-6/core/package.json'))
 
 export const writeAdminFiles = (
   config: __ResolvedKeystoneConfig,
-  graphQLSchema: GraphQLSchema,
   adminMeta: AdminMetaRootVal,
   configFileExists: boolean
 ): AdminFileToWrite[] => {
@@ -37,7 +35,6 @@ export const writeAdminFiles = (
       mode: 'write',
       src: appTemplate(
         adminMeta,
-        graphQLSchema,
         { configFileExists },
         config.graphql?.path || '/api/graphql'
       ),
