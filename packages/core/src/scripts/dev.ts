@@ -26,7 +26,7 @@ import {
   generatePrismaClient
 } from '../artifacts'
 import {
-  type KeystoneConfig
+  type KeystoneConfig,
 } from '../types'
 import { printPrismaSchema } from '../lib/core/prisma-schema-printer'
 import { pkgDir } from '../pkg-dir'
@@ -378,3 +378,120 @@ export async function dev (
     return () => Promise.resolve()
   }
 }
+<<<<<<< HEAD
+=======
+
+async function setupInitialKeystone (
+  cwd: string,
+  config: KeystoneConfig,
+  options: {
+    dbPush: boolean
+    prisma: boolean
+    server: boolean
+  }
+) {
+  const { dbPush, prisma, server } = options
+  const { graphQLSchema, adminMeta, getKeystone } = createSystem(config)
+
+  // mkdir's for local storage
+  for (const val of Object.values(config.storage || {})) {
+    if (val.kind !== 'local') continue
+
+    await fsp.mkdir(val.storagePath, { recursive: true })
+    console.warn(`WARNING: 'mkdir -p ${val.storagePath}' won't happen in production`)
+  }
+
+  const paths = getSystemPaths(cwd, config)
+
+  // Generate the Artifacts
+  if (prisma) {
+    console.log('✨ Generating GraphQL and Prisma schemas')
+    const prismaSchema = (await generatePrismaAndGraphQLSchemas(cwd, config, graphQLSchema)).prisma
+    const prismaClientGenerationPromise = generateTypescriptTypesAndPrisma(
+      cwd,
+      config,
+      graphQLSchema
+    )
+
+    if (config.db.useMigrations) {
+      await devMigrations(
+        config.db.url,
+        config.db.shadowDatabaseUrl,
+        prismaSchema,
+        paths.schema.prisma,
+        false
+      )
+    } else if (dbPush) {
+      await pushPrismaSchemaToDatabase(
+        config.db.url,
+        config.db.shadowDatabaseUrl,
+        prismaSchema,
+        paths.schema.prisma,
+        false
+      )
+    } else {
+      console.warn('⚠️ Skipping database schema push')
+    }
+
+    await prismaClientGenerationPromise
+    const prismaClientModule = require(paths.prisma)
+    const keystone = getKeystone(prismaClientModule)
+
+    console.log('✨ Connecting to the database')
+    await keystone.connect() // TODO: remove, replace with server.onStart
+    if (!server) {
+      return {
+        adminMeta,
+        graphQLSchema,
+        context: keystone.context,
+        prismaSchema,
+        prismaClientModule,
+      }
+    }
+
+    console.log('✨ Creating server')
+    const { apolloServer, expressServer } = await createExpressServer(
+      config,
+      graphQLSchema,
+      keystone.context
+    )
+    console.log(`✅ GraphQL API ready`)
+
+    return {
+      adminMeta,
+      expressServer,
+      apolloServer,
+      graphQLSchema,
+      context: keystone.context,
+      prismaSchema,
+      prismaClientModule,
+    }
+  }
+  return {
+    adminMeta,
+    graphQLSchema,
+    context: keystone.context,
+  }
+}
+
+async function initAdminUI (
+  cwd: string,
+  config: KeystoneConfig,
+  context: KeystoneContext,
+  ui: boolean
+) {
+  if (config.ui?.isDisabled || !ui) return
+
+  const paths = getSystemPaths(cwd, config)
+
+  console.log('✨ Generating Admin UI code')
+  await generateAdminUI(config, context, paths.admin, false)
+
+  console.log('✨ Preparing Admin UI app')
+  const nextApp = next({ dev: true, dir: paths.admin })
+  await nextApp.prepare()
+
+  console.log(`✅ Admin UI ready`)
+  return nextApp
+}
+>>>>>>> 896b4167b (less-meta-wip)

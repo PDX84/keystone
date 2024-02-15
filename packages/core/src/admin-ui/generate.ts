@@ -3,14 +3,13 @@ import { promisify } from 'node:util'
 import fs from 'node:fs/promises'
 import fse from 'fs-extra'
 import resolve from 'resolve'
-import { type GraphQLSchema } from 'graphql'
 import { type Entry, walk as _walk } from '@nodelib/fs.walk'
 import {
   type AdminFileToWrite,
+  type KeystoneContext,
   type __ResolvedKeystoneConfig
 } from '../../types'
-import { writeAdminFiles } from '../templates'
-import { type AdminMetaRootVal } from '../../lib/create-admin-meta'
+import { writeAdminFiles } from './templates'
 
 const walk = promisify(_walk)
 
@@ -67,8 +66,7 @@ const pageExtensions = new Set(['.js', '.jsx', '.ts', '.tsx'])
 
 export async function generateAdminUI (
   config: __ResolvedKeystoneConfig,
-  graphQLSchema: GraphQLSchema,
-  adminMeta: AdminMetaRootVal,
+  context: KeystoneContext,
   projectAdminPath: string,
   isLiveReload: boolean
 ) {
@@ -100,7 +98,7 @@ export async function generateAdminUI (
 
   // Write out the built-in admin UI files. Don't overwrite any user-defined pages.
   const configFileExists = getDoesAdminConfigExist()
-  let adminFiles = writeAdminFiles(config, graphQLSchema, adminMeta, configFileExists)
+  let adminFiles = writeAdminFiles(config, context, configFileExists)
 
   // Add files to pages/ which point to any files which exist in admin/pages
   const adminConfigDir = Path.join(process.cwd(), 'admin')
