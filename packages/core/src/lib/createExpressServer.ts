@@ -56,20 +56,25 @@ export async function createExpressServer (
   apolloServer: ApolloServer<KeystoneContext>
   httpServer: Server
 }> {
-  const expressServer = express()
-  const httpServer = createServer(expressServer)
+  const expressApp = express()
+  const httpServer = createServer(expressApp)
 
   if (config.server.cors !== null) {
-    expressServer.use(cors(config.server.cors))
+    expressApp.use(cors(config.server.cors))
   }
 
-  await config.server.extendExpressApp(expressServer, context)
+  expressApp.disable('etag')
+  expressApp.disable('x-powered-by')
+  expressApp.enable('case sensitive routing')
+  expressApp.enable('strict routing')
+
+  await config.server.extendExpressApp(expressApp, context)
   await config.server.extendHttpServer(httpServer, context)
 
   if (config.storage) {
     for (const val of Object.values(config.storage)) {
       if (val.kind !== 'local' || !val.serverRoute) continue
-      expressServer.use(
+      expressApp.use(
         val.serverRoute.path,
         express.static(val.storagePath, {
           setHeaders (res) {
@@ -106,9 +111,9 @@ export async function createExpressServer (
   const apolloServer = new ApolloServer({ ...serverConfig })
   const maxFileSize = config.server.maxFileSize
 
-  expressServer.use(graphqlUploadExpress({ maxFileSize }))
+  expressApp.use(graphqlUploadExpress({ maxFileSize }))
   await apolloServer.start()
-  expressServer.use(
+  expressApp.use(
     config.graphql.path,
     json(config.graphql.bodyParser),
     expressMiddleware(apolloServer, {
@@ -118,5 +123,5 @@ export async function createExpressServer (
     })
   )
 
-  return { expressServer, apolloServer, httpServer }
+  return { expressApp, apolloServer, httpServer }
 }
