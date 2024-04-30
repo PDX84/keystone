@@ -1,12 +1,15 @@
-import { createServer, type Server } from 'http'
+import { createServer, type Server } from 'node:http'
 import cors from 'cors'
 import { json } from 'body-parser'
-import { expressMiddleware } from '@apollo/server/express4'
 import express from 'express'
 import {
   type GraphQLFormattedError,
 } from 'graphql'
-import { ApolloServer, type ApolloServerOptions } from '@apollo/server'
+import {
+  type ApolloServerOptions,
+  ApolloServer,
+} from '@apollo/server'
+import { expressMiddleware } from '@apollo/server/express4'
 import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled'
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default'
 // @ts-expect-error
